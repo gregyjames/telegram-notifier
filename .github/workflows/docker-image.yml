@@ -7,12 +7,22 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.docker-cache
+        key: ${{ runner.os }}-docker-main-go-${{ hashFiles('main.go') }}
+        restore-keys: |
+          ${{ runner.os }}-docker-main-go-
     - name: Build the Docker image
-      run: docker build . --file dockerfile
+      run: |
+        docker build --cache-from=type=local,src=/tmp/.docker-cache \
+                     --cache-to=type=local,dest=/tmp/.docker-cache \
+                     . --file dockerfile
