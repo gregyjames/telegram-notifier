@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// Open the JSON configuration file
-	file, err := os.Open("config.json")
+	file, err := os.Open("/usr/src/app/data/config.json")
 	if err != nil {
 		log.Fatalf("Error opening config file: %v", err)
 	}
