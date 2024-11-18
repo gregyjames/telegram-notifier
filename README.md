@@ -1,4 +1,4 @@
-[![Docker](https://github.com/gregyjames/telegram-notifier/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/gregyjames/telegram-notifier/actions/workflows/docker-publish.yml)
+[![Docker Image CI](https://github.com/gregyjames/telegram-notifier/actions/workflows/docker-image.yml/badge.svg)](https://github.com/gregyjames/telegram-notifier/actions/workflows/docker-image.yml)
 ![GitHub repo size](https://img.shields.io/github/repo-size/gregyjames/telegram-notifier)
 ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/gjames8/telegram-notifier/main)
 ![Docker Pulls](https://img.shields.io/docker/pulls/gjames8/telegram-notifier)
@@ -36,7 +36,7 @@ In the same directory as your Compose file, create a new folder named `telegram`
 
 ## Features
 - Fast
-- Lightweight (1.85MB!)
+- Extreamly Lightweight (1.76MB!)
 - Quick Setup
 
 ## License
