@@ -21,7 +21,7 @@ RUN apk add --no-cache upx
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -gcflags=all="-l" -o /server .
 
-#RUN upx -9 -v --ultra-brute --lzma --best /server
+RUN upx -9 -v --ultra-brute --lzma --best /server
 #FROM gcr.io/distroless/static-debian11
 FROM scratch
 
