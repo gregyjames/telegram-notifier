@@ -1,0 +1,9 @@
+services:
+  telegram:
+    container_name: telegram_notifier
+    image: 'ghcr.io/gregyjames/telegram-notifier:main'
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./telegram:/usr/src/app/data
