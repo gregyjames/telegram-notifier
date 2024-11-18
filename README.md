@@ -1,5 +1,7 @@
 [![Docker](https://github.com/gregyjames/telegram-notifier/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/gregyjames/telegram-notifier/actions/workflows/docker-publish.yml)
 ![GitHub repo size](https://img.shields.io/github/repo-size/gregyjames/telegram-notifier)
+![Docker Image Size (tag)](https://img.shields.io/docker/image-size/gjames8/telegram-notifier/main)
+![Docker Pulls](https://img.shields.io/docker/pulls/gjames8/telegram-notifier)
 
 # telegram-notifier
 A simple, self-hosted REST server for Raspberry Pi that sends Telegram notifications.
