@@ -1,14 +1,8 @@
 name: Deploy
 
 on:
-  schedule:
-    - cron: '15 19 * * *'
   push:
-    branches: [ "main" ]
-    # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   deploy:
