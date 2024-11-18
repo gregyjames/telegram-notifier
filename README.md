@@ -13,7 +13,7 @@ A simple, self-hosted REST server for Raspberry Pi that sends Telegram notificat
 services:
   telegram:
   container_name: telegram_notifier
-  image: 'ghcr.io/gregyjames/telegram-notifier:latest'
+  image: gjames8/telegram-notifier:latest
   restart: unless-stopped
   ports:
     - "8080:8080"
