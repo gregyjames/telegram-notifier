@@ -16,7 +16,7 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
-RUN apk add --no-cache upx 
+#RUN apk add --no-cache upx 
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -gcflags=all="-l" -o /server .
