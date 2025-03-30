@@ -70,8 +70,10 @@ func main() {
 		}
 
 		// Send message via Telegram bot
-		msg := tgbotapi.NewMessage(chatID, body.Message)
+		escapedText := tgbotapi.EscapeText(tgbotapi.ModeMarkdown, body.Message)
+		msg := tgbotapi.NewMessage(chatID, escapedText)
 		msg.ParseMode = tgbotapi.ModeMarkdown
+		
 		_, err := bot.Send(msg)
 		if err != nil {
 			log.Printf("Error sending message: %v", err)
