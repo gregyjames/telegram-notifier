@@ -32,7 +32,11 @@ In the same directory as your Compose file, create a new folder named `telegram`
 `docker compose up -d`
 
 ### Send message
-`curl "http://SERVERIP:8080/get?message=hello"`
+```zsh
+ curl -X POST http://localhost:8080/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello from POST body!"}'
+```
 
 ## Features
 - Fast
