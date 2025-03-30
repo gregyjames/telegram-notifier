@@ -52,13 +52,25 @@ func main() {
 	// Initialize Fiber app
 	app := fiber.New()
 
-	// Define GET endpoint
-	app.Get("/get", func(c *fiber.Ctx) error {
-		// Retrieve the message from query parameters
-		message := c.Query("message", "No message provided")
+	// Define POST endpoint
+	app.Post("/send", func(c *fiber.Ctx) error {
+		// Define a struct to receive JSON body
+		var body struct {
+			Message string `json:"message"`
+		}
+
+		// Parse JSON body
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Invalid JSON body")
+		}
+
+		// Validate message
+		if body.Message == "" {
+			return c.Status(fiber.StatusBadRequest).SendString("Missing message in request body")
+		}
 
 		// Send message via Telegram bot
-		msg := tgbotapi.NewMessage(chatID, message)
+		msg := tgbotapi.NewMessage(chatID, body.Message)
 		msg.ParseMode = tgbotapi.ModeMarkdown
 		_, err := bot.Send(msg)
 		if err != nil {
@@ -66,7 +78,6 @@ func main() {
 			return c.Status(fiber.StatusInternalServerError).SendString("Failed to send message")
 		}
 
-		// Respond to HTTP request
 		return c.SendString("Message sent successfully!")
 	})
 
