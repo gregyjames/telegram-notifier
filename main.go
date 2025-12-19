@@ -10,7 +10,7 @@ import (
 
 func main() {
 	// Load configuration
-	config, err := LoadConfig("/usr/src/app/data/config.json")
+	config, err := LoadConfig("config.json")
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}
@@ -60,6 +60,32 @@ func main() {
 		}
 
 		return c.SendString("Message sent successfully!")
+	})
+
+	app.Post("/sendfile", func(c *fiber.Ctx) error {
+		file, err := c.FormFile("file")
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Error getting file")
+		}
+
+		content, err := file.Open()
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Error opening file")
+		}
+
+		defer content.Close()
+
+		contentType := file.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		if err := notifier.PublishFile(ctx, content, contentType, file.Filename); err != nil {
+			log.Printf("Error sending file: %v", err)
+			return c.Status(fiber.StatusInternalServerError).SendString("Error sending file.")
+		}
+
+		return c.SendString("File sent successfully!")
 	})
 
 	// Start the Fiber server

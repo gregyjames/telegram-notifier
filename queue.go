@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -13,15 +15,18 @@ import (
 // MessageQueue interface defines queue operations
 type MessageQueue interface {
 	Publish(ctx context.Context, message RequestBody) error
+	PublishFile(ctx context.Context, file multipart.File, contentType string, fileName string) error
 	StartConsumer(handler func(RequestBody) error)
+	StartFileConsumer(handler func(FileMessage) error)
 	Close() error
 }
 
 // RabbitMQQueue implements MessageQueue using RabbitMQ
 type RabbitMQQueue struct {
-	conn  *amqp.Connection
-	ch    *amqp.Channel
-	queue *amqp.Queue
+	conn  		 *amqp.Connection
+	ch    		 *amqp.Channel
+	queueMessage *amqp.Queue
+	queueFile	 *amqp.Queue
 }
 
 func NewRabbitMQQueue(config Configuration) (*RabbitMQQueue, error) {
@@ -43,7 +48,21 @@ func NewRabbitMQQueue(config Configuration) (*RabbitMQQueue, error) {
 	}
 
 	queue, err := ch.QueueDeclare(
-		"telegram-notifier",
+		"telegram-notifier-messages",
+		true,  // durable
+		true,  // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,
+	)
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to declare queue: %w", err)
+	}
+
+	queue2, err := ch.QueueDeclare(
+		"telegram-notifier-files",
 		true,  // durable
 		true,  // delete when unused
 		false, // exclusive
@@ -59,7 +78,8 @@ func NewRabbitMQQueue(config Configuration) (*RabbitMQQueue, error) {
 	return &RabbitMQQueue{
 		conn:  conn,
 		ch:    ch,
-		queue: &queue,
+		queueMessage: &queue,
+		queueFile: &queue2,
 	}, nil
 }
 
@@ -71,7 +91,7 @@ func (r *RabbitMQQueue) Publish(ctx context.Context, message RequestBody) error 
 
 	err = r.ch.PublishWithContext(ctx,
 		"",           // exchange
-		r.queue.Name, // routing key
+		r.queueMessage.Name, // routing key
 		false,        // mandatory
 		false,        // immediate
 		amqp.Publishing{
@@ -88,9 +108,42 @@ func (r *RabbitMQQueue) Publish(ctx context.Context, message RequestBody) error 
 	return nil
 }
 
+func (r *RabbitMQQueue) PublishFile(ctx context.Context, file multipart.File, contentType string, fileName string) error {
+	data, err := io.ReadAll(file)
+	failOnError(err, "failed to read file")
+
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	payload, err := json.Marshal(FileMessage{
+		ContentType: contentType,
+		Data:        data,
+		FileName:    fileName,
+	})
+
+	err = r.ch.PublishWithContext(ctx,
+		"",           // exchange
+		r.queueFile.Name, // routing key
+		false,        // mandatory
+		false,        // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         payload,
+			DeliveryMode: amqp.Persistent,
+			Timestamp:    time.Now(),
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to publish message: %w", err)
+	}
+	return nil
+}
+
 func (r *RabbitMQQueue) StartConsumer(handler func(RequestBody) error) {
 	msgs, err := r.ch.Consume(
-		r.queue.Name, // queue
+		r.queueMessage.Name, // queue
 		"",           // consumer
 		true,         // auto-ack
 		false,        // exclusive
@@ -120,6 +173,34 @@ func (r *RabbitMQQueue) StartConsumer(handler func(RequestBody) error) {
 	}()
 }
 
+func (r *RabbitMQQueue) StartFileConsumer(handler func(FileMessage) error) {
+	msgs, err := r.ch.Consume(
+		r.queueFile.Name, // queue
+		"",           // consumer
+		true,         // auto-ack
+		false,        // exclusive
+		false,        // no-local
+		false,        // no-wait
+		nil,          // args
+	)
+	failOnError(err, "Failed to register consumer")
+
+	go func() {
+		for d := range msgs {
+			var evt FileMessage
+			
+			if err := json.Unmarshal(d.Body, &evt); err != nil {
+				log.Printf("failed to unmarshal FileMessage: %v", err)
+				continue
+			}
+
+			if err := handler(evt); err != nil {
+				log.Printf("Error in file handler: %v", err)
+			}
+		}
+	}()
+}
+
 func (r *RabbitMQQueue) Close() error {
 	if r.ch != nil {
 		r.ch.Close()
@@ -133,11 +214,13 @@ func (r *RabbitMQQueue) Close() error {
 // ChannelQueue implements MessageQueue using Go channels
 type ChannelQueue struct {
 	messageChan chan RequestBody
+	fileChan    chan FileMessage
 }
 
 func NewChannelQueue(bufferSize int) *ChannelQueue {
 	return &ChannelQueue{
 		messageChan: make(chan RequestBody, bufferSize),
+		fileChan:    make(chan FileMessage, bufferSize),
 	}
 }
 
@@ -152,10 +235,50 @@ func (c *ChannelQueue) Publish(ctx context.Context, message RequestBody) error {
 	}
 }
 
+func (c *ChannelQueue) PublishFile(
+	ctx context.Context,
+	file multipart.File,
+	contentType string,
+	fileName string,
+) error {
+	data, err := io.ReadAll(file)
+	failOnError(err, "failed to read file")
+
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	msg := FileMessage{
+		ContentType: contentType,
+		Data:        data, // []byte
+		FileName:    fileName,
+	}
+
+	select {
+	case c.fileChan <- msg:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("channel send timeout")
+	}
+}
+
 func (c *ChannelQueue) StartConsumer(handler func(RequestBody) error) {
 	go func() {
 		for evt := range c.messageChan {
 			log.Printf("Received a message: %s", evt.Message)
+			if err := handler(evt); err != nil {
+				log.Printf("Error in handler: %v", err)
+			}
+		}
+	}()
+}
+
+func (c *ChannelQueue) StartFileConsumer(handler func(FileMessage) error) {
+	go func() {
+		for evt := range c.fileChan {
+			log.Printf("Received a message: %s", evt)
 			if err := handler(evt); err != nil {
 				log.Printf("Error in handler: %v", err)
 			}
