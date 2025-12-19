@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"log"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -39,8 +37,8 @@ func main() {
 	// Initialize Fiber app
 	app := fiber.New()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	//defer cancel()
 
 	// Define POST endpoint
 	app.Post("/send", func(c *fiber.Ctx) error {
@@ -54,7 +52,7 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Missing message in request body")
 		}
 
-		if err := notifier.PublishMessage(ctx, body); err != nil {
+		if err := notifier.PublishMessage(c.Context(), body); err != nil {
 			log.Printf("Error sending message: %v", err)
 			return c.Status(fiber.StatusInternalServerError).SendString("Error sending message.")
 		}
@@ -80,7 +78,7 @@ func main() {
 			contentType = "application/octet-stream"
 		}
 
-		if err := notifier.PublishFile(ctx, content, contentType, file.Filename); err != nil {
+		if err := notifier.PublishFile(c.Context(), content, contentType, file.Filename); err != nil {
 			log.Printf("Error sending file: %v", err)
 			return c.Status(fiber.StatusInternalServerError).SendString("Error sending file.")
 		}

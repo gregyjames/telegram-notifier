@@ -197,6 +197,8 @@ func (r *RabbitMQQueue) StartFileConsumer(handler func(FileMessage) error) {
 				continue
 			}
 
+			log.Printf("Received a file message: %s", evt.FileName)
+
 			if err := handler(evt); err != nil {
 				log.Printf("Error in file handler: %v", err)
 			}
@@ -281,7 +283,7 @@ func (c *ChannelQueue) StartConsumer(handler func(RequestBody) error) {
 func (c *ChannelQueue) StartFileConsumer(handler func(FileMessage) error) {
 	go func() {
 		for evt := range c.fileChan {
-			log.Printf("Received a message: %s", evt)
+			log.Printf("Received a file: %s", evt.FileName)
 			if err := handler(evt); err != nil {
 				log.Printf("Error in handler: %v", err)
 			}
