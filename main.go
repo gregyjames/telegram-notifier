@@ -16,14 +16,14 @@ type Configuration struct {
 	Chatid   string `json:"chatid"`
 	RabbitMQ struct {
 		Address     string `json:"Address"`
+		Port        int    `json:"Port"`
+		Username    string `json:"Username"`
+		Password    string `json:"Password"`
 		UseRabbitMQ bool   `json:"UseRabbitMQ"`
 	} `json:"RabbitMQ"`
 }
 
 func main() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	defer conn.Close()
-
 	// Open the JSON configuration file
 	file, err := os.Open("/usr/src/app/data/config.json")
 	if err != nil {
@@ -37,6 +37,9 @@ func main() {
 	if err := decoder.Decode(&config); err != nil {
     	log.Fatalf("Error decoding config file: %v", err)
 	}
+
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	defer conn.Close()
 
 	// Extract and assert bot token
 	botToken := config.Key
