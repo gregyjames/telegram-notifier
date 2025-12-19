@@ -10,6 +10,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // MessageQueue interface defines queue operations
@@ -116,11 +117,13 @@ func (r *RabbitMQQueue) PublishFile(ctx context.Context, file multipart.File, co
 		contentType = "application/octet-stream"
 	}
 
-	payload, err := json.Marshal(FileMessage{
+	payload, err := msgpack.Marshal(&FileMessage{
 		ContentType: contentType,
 		Data:        data,
 		FileName:    fileName,
 	})
+
+	failOnError(err, "Error serializing data for RabbitMQ.")
 
 	err = r.ch.PublishWithContext(ctx,
 		"",           // exchange
@@ -128,7 +131,7 @@ func (r *RabbitMQQueue) PublishFile(ctx context.Context, file multipart.File, co
 		false,        // mandatory
 		false,        // immediate
 		amqp.Publishing{
-			ContentType:  "application/json",
+			ContentType:  "application/octet-stream",
 			Body:         payload,
 			DeliveryMode: amqp.Persistent,
 			Timestamp:    time.Now(),
@@ -189,7 +192,7 @@ func (r *RabbitMQQueue) StartFileConsumer(handler func(FileMessage) error) {
 		for d := range msgs {
 			var evt FileMessage
 			
-			if err := json.Unmarshal(d.Body, &evt); err != nil {
+			if err := msgpack.Unmarshal(d.Body, &evt); err != nil {
 				log.Printf("failed to unmarshal FileMessage: %v", err)
 				continue
 			}
