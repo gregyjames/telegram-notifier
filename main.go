@@ -1,91 +1,71 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log"
-	"os"
-	"strconv"
+	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
-	// Open the JSON configuration file
-	file, err := os.Open("/usr/src/app/data/config.json")
+	// Load configuration
+	config, err := LoadConfig("/usr/src/app/data/config.json")
 	if err != nil {
-		log.Fatalf("Error opening config file: %v", err)
-	}
-	defer file.Close()
-
-	// Parse the JSON configuration
-	var config map[string]interface{}
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&config); err != nil {
-		log.Fatalf("Error decoding JSON: %v", err)
+		log.Fatalf("Error loading config: %v", err)
 	}
 
-	// Extract and assert bot token
-	botToken, ok := config["key"].(string)
-	if !ok {
-		log.Fatalf("Invalid or missing 'key' in config")
+	// Create queue based on configuration
+	var queue MessageQueue
+	if config.RabbitMQ.UseRabbitMQ {
+		log.Println("Using RabbitMQ queue")
+		queue, err = NewRabbitMQQueue(*config)
+		if err != nil {
+			log.Fatalf("Failed to create RabbitMQ queue: %v", err)
+		}
+		defer queue.Close()
+	} else {
+		log.Println("Using channel queue")
+		queue = NewChannelQueue(100)
+		defer queue.Close()
 	}
 
-	// Extract and assert chat ID
-	chatIDString, ok := config["chatid"].(string)
-	if !ok {
-		log.Fatalf("Invalid or missing 'chatid' in config")
-	}
-
-	// Convert chat ID to int64
-	chatID, err := strconv.ParseInt(chatIDString, 10, 64)
+	// Create notifier
+	notifier, err := NewTelegramNotifier(*config, queue)
 	if err != nil {
-		log.Fatalf("Error converting 'chatid' to int64: %v", err)
-	}
-
-	// Initialize Telegram Bot
-	bot, err := tgbotapi.NewBotAPI(botToken)
-	if err != nil {
-		log.Fatalf("Error initializing Telegram bot: %v", err)
+		log.Fatalf("Failed to create notifier: %v", err)
 	}
 
 	// Initialize Fiber app
 	app := fiber.New()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	// Define POST endpoint
 	app.Post("/send", func(c *fiber.Ctx) error {
-		// Define a struct to receive JSON body
-		var body struct {
-			Message string `json:"message"`
-		}
+		var body RequestBody
 
-		// Parse JSON body
 		if err := c.BodyParser(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).SendString("Invalid JSON body")
 		}
 
-		// Validate message
 		if body.Message == "" {
 			return c.Status(fiber.StatusBadRequest).SendString("Missing message in request body")
 		}
 
-		// Send message via Telegram bot
-		escapedText := tgbotapi.EscapeText(tgbotapi.ModeMarkdown, body.Message)
-		msg := tgbotapi.NewMessage(chatID, escapedText)
-		msg.ParseMode = tgbotapi.ModeMarkdown
-		
-		_, err := bot.Send(msg)
-		if err != nil {
+		if err := notifier.PublishMessage(ctx, body); err != nil {
 			log.Printf("Error sending message: %v", err)
-			return c.Status(fiber.StatusInternalServerError).SendString("Failed to send message")
+			return c.Status(fiber.StatusInternalServerError).SendString("Error sending message.")
 		}
 
 		return c.SendString("Message sent successfully!")
 	})
 
 	// Start the Fiber server
-	log.Println("Server is running on http://localhost:8080")
 	if err := app.Listen(":8080"); err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
+
+	log.Println("Server is running on http://localhost:8080")
 }
