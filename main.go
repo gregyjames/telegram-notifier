@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"log"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -39,8 +37,8 @@ func main() {
 	// Initialize Fiber app
 	app := fiber.New()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	//defer cancel()
 
 	// Define POST endpoint
 	app.Post("/send", func(c *fiber.Ctx) error {
@@ -54,12 +52,38 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).SendString("Missing message in request body")
 		}
 
-		if err := notifier.PublishMessage(ctx, body); err != nil {
+		if err := notifier.PublishMessage(c.Context(), body); err != nil {
 			log.Printf("Error sending message: %v", err)
 			return c.Status(fiber.StatusInternalServerError).SendString("Error sending message.")
 		}
 
 		return c.SendString("Message sent successfully!")
+	})
+
+	app.Post("/sendfile", func(c *fiber.Ctx) error {
+		file, err := c.FormFile("file")
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Error getting file")
+		}
+
+		content, err := file.Open()
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Error opening file")
+		}
+
+		defer content.Close()
+
+		contentType := file.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		if err := notifier.PublishFile(c.Context(), content, contentType, file.Filename); err != nil {
+			log.Printf("Error sending file: %v", err)
+			return c.Status(fiber.StatusInternalServerError).SendString("Error sending file.")
+		}
+
+		return c.SendString("File sent successfully!")
 	})
 
 	// Start the Fiber server

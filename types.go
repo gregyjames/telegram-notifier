@@ -15,3 +15,9 @@ type Configuration struct {
 type RequestBody struct {
 	Message string `json:"message"`
 }
+
+type FileMessage struct {
+	ContentType string
+	Data        []byte
+	FileName string
+}

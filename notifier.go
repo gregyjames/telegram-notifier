@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"mime/multipart"
 	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -32,6 +33,7 @@ func NewTelegramNotifier(config Configuration, queue MessageQueue) (*TelegramNot
 
 	// Start consuming messages
 	queue.StartConsumer(notifier.SendToTelegram)
+	queue.StartFileConsumer(notifier.SendFileToTelegram)
 
 	return notifier, nil
 }
@@ -44,8 +46,24 @@ func (t *TelegramNotifier) SendToTelegram(message RequestBody) error {
 	return err
 }
 
+func (t *TelegramNotifier) SendFileToTelegram(message FileMessage) error {
+	b := tgbotapi.FileBytes{
+		Name: message.FileName,
+		Bytes: message.Data,
+	}
+
+	msg := tgbotapi.NewDocument(t.chatID, b)
+	msg.Caption = "Test"
+	_, err := t.bot.Send(msg)
+	return err
+}
+
 func (t *TelegramNotifier) PublishMessage(ctx context.Context, message RequestBody) error {
 	return t.queue.Publish(ctx, message)
+}
+
+func (t *TelegramNotifier) PublishFile(ctx context.Context, file multipart.File, contentType string, fileName string) error {
+	return t.queue.PublishFile(ctx, file, contentType, fileName)
 }
 
 func (t *TelegramNotifier) Close() error {
