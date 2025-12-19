@@ -11,10 +11,19 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type Configuration struct {
+	Key      string `json:"key"`
+	Chatid   string `json:"chatid"`
+	RabbitMQ struct {
+		Address     string `json:"Address"`
+		UseRabbitMQ bool   `json:"UseRabbitMQ"`
+	} `json:"RabbitMQ"`
+}
+
 func main() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	defer conn.Close()
-	
+
 	// Open the JSON configuration file
 	file, err := os.Open("/usr/src/app/data/config.json")
 	if err != nil {
