@@ -25,7 +25,14 @@ In the same directory as your Compose file, create a new folder named `telegram`
 ```json
 {
 	"key": "Telegram API KEY from BotFather",
-	"chatid": "Telegram ChatID"
+	"chatid": "Telegram ChatID",
+  "RabbitMQ": {
+    "Host": "127.0.0.1",
+    "Port": 5672,
+    "Username": "guest",
+    "Password": "guest",
+    "UseRabbitMQ": false
+  }
 }
 ```
 ### Run
