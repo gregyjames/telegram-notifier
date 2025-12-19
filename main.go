@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -15,7 +16,7 @@ type Configuration struct {
 	Key      string `json:"key"`
 	Chatid   string `json:"chatid"`
 	RabbitMQ struct {
-		Address     string `json:"Address"`
+		Host     string    `json:"Host"`
 		Port        int    `json:"Port"`
 		Username    string `json:"Username"`
 		Password    string `json:"Password"`
@@ -38,7 +39,9 @@ func main() {
     	log.Fatalf("Error decoding config file: %v", err)
 	}
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	address := fmt.Sprintf("amqp://%s:%s@%s:%d/", config.RabbitMQ.Username, config.RabbitMQ.Password, config.RabbitMQ.Host, config.RabbitMQ.Port);
+
+	conn, err := amqp.Dial(address)
 	defer conn.Close()
 
 	// Extract and assert bot token
