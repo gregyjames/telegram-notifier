@@ -32,23 +32,15 @@ func main() {
 	defer file.Close()
 
 	// Parse the JSON configuration
-	var config map[string]interface{}
+	var config Configuration
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&config); err != nil {
-		log.Fatalf("Error decoding JSON: %v", err)
+    	log.Fatalf("Error decoding config file: %v", err)
 	}
 
 	// Extract and assert bot token
-	botToken, ok := config["key"].(string)
-	if !ok {
-		log.Fatalf("Invalid or missing 'key' in config")
-	}
-
-	// Extract and assert chat ID
-	chatIDString, ok := config["chatid"].(string)
-	if !ok {
-		log.Fatalf("Invalid or missing 'chatid' in config")
-	}
+	botToken := config.Key
+	chatIDString := config.Chatid
 
 	// Convert chat ID to int64
 	chatID, err := strconv.ParseInt(chatIDString, 10, 64)
